@@ -1,75 +1,41 @@
-const express = require("express")
-const sqlite3 = require("sqlite3").verbose()
-const bodyParser = require("body-parser")
 
-const app = express()
-const db = new sqlite3.Database("portal.db")
+const express = require("express");
+const sqlite3 = require("sqlite3").verbose();
+const bodyParser = require("body-parser");
 
-app.use(bodyParser.urlencoded({ extended: true }))
-app.use(bodyParser.json())
+const app = express();
+const db = new sqlite3.Database("./portal.db");
 
-db.serialize(() => {
-
-    db.run(`
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT,
-            password TEXT
-        )
-    `)
-
-    db.get("SELECT COUNT(*) AS count FROM users", (err, row) => {
-
-        if (row.count === 0) {
-
-            db.run(
-                "INSERT INTO users (username, password) VALUES (?, ?)",
-                ["admin", "admin123"]
-            )
-
-            db.run(
-                "INSERT INTO users (username, password) VALUES (?, ?)",
-                ["employee", "password"]
-            )
-        }
-
-    })
-
-})
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 
 
 app.post("/login", (req, res) => {
+    const { username, password } = req.body;
 
-    const username = req.body.username
-    const password = req.body.password
+    if (typeof username !== "string" || typeof password !== "string") {
+        return res.status(400).send("Invalid input");
+    }
 
-    const query =
-        "SELECT * FROM users WHERE username = '" +
-        username +
-        "' AND password = '" +
-        password +
-        "'"
+    const query = "SELECT * FROM users WHERE username = ? AND password = ?";
 
-    console.log("\nExecuting SQL:")
-    console.log(query)
-
-    db.all(query, (err, rows) => {
-
+    db.get(query, [username, password], (err, row) => {
         if (err) {
-            return res.status(500).send("Database error")
+            console.error(err);
+            return res.status(500).send("Database error");
         }
 
-        if (rows && rows.length > 0) {
-            res.send("Login success")
+        if (row) {
+            res.send("Login successful");
         } else {
-            res.send("Login failed")
+            res.status(401).send("Invalid credentials");
         }
-
-    })
-
-})
+    });
+});
 
 
-app.listen(3000, () => {
-    console.log("Server running on http://localhost:3000")
-})
+const PORT = 3000;
+
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});
